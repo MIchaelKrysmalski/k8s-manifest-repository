@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${SERVICE_NAME-mariadb}
+  namespace: ${NAMESPACE}
+spec:
+  selector:
+    matchLabels:
+      app: ${SERVICE_NAME-mariadb}
+  replicas: ${SERVICE_NAME_REPLICA_COUNT}
+  template:
+    metadata:
+      labels:
+        app: ${SERVICE_NAME-mariadb}
+    spec:
+      containers:
+      - name: ${SERVICE_NAME-mariadb}
+        image: ${IMAGE_NAME}:${IMAGE_VERSION}
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom: 
+            secretKeyRef: 
+              name: "${SERVICE_NAME-mariadb}-secret"
+              key: mysql-root-password
+        - name: MYSQL_DATABASE
+          valueFrom: 
+            configMapKeyRef: 
+              name: "${SERVICE_NAME-mariadb}-configmap"
+              key: mysql-database
+        - name: MYSQL_USER
+          valueFrom: 
+            configMapKeyRef: 
+              name: "${SERVICE_NAME-mariadb}-configmap"
+              key: mysql-user
+        - name: MYSQL_PASSWORD
+          valueFrom: 
+            secretKeyRef: 
+              name: "${SERVICE_NAME-mariadb}-secret"
+              key: mysql-password
+        ports:
+        - containerPort: ${DATABASE_PORT}
+        volumeMounts:
+        - name: "${SERVICE_NAME-mariadb}-storage"
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: "${SERVICE_NAME-mariadb}-storage"
+        persistentVolumeClaim:
+          claimName: "${SERVICE_NAME-mariadb}-storage"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "${SERVICE_NAME-mariadb}-configmap"
+  namespace: ${NAMESPACE}
+data:
+  mysql-host: "${SERVICE_NAME-mariadb}-svc"
+  mysql-database: ${DATABASE_NAME}
+  mysql-user: ${DATABASE_USER}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "${SERVICE_NAME-mariadb}-secret"
+  namespace: ${NAMESPACE}
+type: Opaque
+data:
+  mysql-root-password: ${DATABASE_ROOT_PASSWORD}
+  mysql-password: ${DATABASE_PASSWORD}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: "${SERVICE_NAME-mariadb}-svc"
+  namespace: ${NAMESPACE}
+spec:
+  selector:
+    app: mariadb
+  ports:
+    - name: "${SERVICE_NAME-mariadb}-port"
+      port: ${DATABASE_PORT}
+      targetPort: ${DATABASE_PORT}
+  type: ClusterIP

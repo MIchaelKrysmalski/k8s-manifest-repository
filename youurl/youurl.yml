@@ -1,0 +1,113 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${YOUURL_SERVICE_NAME}
+  namespace: ${YOUURL_NAMESPACE}
+  labels:
+    app: ${YOUURL_SERVICE_NAME}
+spec:
+  replicas: ${YOUURL_REPLICA_COUNT}
+  selector:
+    matchLabels:
+      app: ${YOUURL_SERVICE_NAME}
+  template:
+    metadata:
+      labels:
+        app: ${YOUURL_SERVICE_NAME}
+    spec:
+      containers:
+      - name: ${YOUURL_SERVICE_NAME}
+        image: ${YOUURL_IMAGE}:${YOUURL_IMAGE_VERSION}
+        ports:
+        - containerPort: ${YOUURL_PORT}
+        env:
+        - name: YOURLS_SITE
+          valueFROM:
+            configMapKeyRef:
+              name: "${YOUURL_SERVICE_NAME}-configmap"
+              key: youurl-site
+        - name: YOURLS_USER
+          valueFROM:
+            configMapKeyRef:
+              name: "${YOUURL_SERVICE_NAME}-configmap"
+              key: youurl-user
+        - name: YOURLS_PASS
+          valueFROM:
+            secretMapKeyRef:
+              name: "${YOUURL_SERVICE_NAME}-secret"
+              key: youurl-pass
+        - name: YOURLS_DB
+          valueFROM:
+            configMapKeyRef:
+              name: "${SERVICE_NAME-mariadb}-configmap"
+              key: mysql-db
+        - name: YOURLS_DB_HOST
+          valueFROM:
+            configMapKeyRef:
+              name: "${SERVICE_NAME-mariadb}-configmap"
+              key: mysql-host
+        - name: YOURLS_DB_USER
+          valueFROM:
+            configMapKeyRef:
+              name: "$${SERVICE_NAME-mariadb}-configmap"
+              key: mysql-user
+        - name: YOURLS_DB_PASS
+          valueFROM:
+            secretKeyRef:
+              name: "${SERVICE_NAME-mariadb}-configmap"
+              key: mysql-password
+        volumeMounts:
+        - name: "${YOUURL_SERVICE_NAME}-data"
+          mountPath: /var/www/html
+      volumes:
+      - name: "${YOUURL_SERVICE_NAME}-data"
+        persistentVolumeClaim:
+          claimName: "${YOUURL_SERVICE_NAME}-pvc"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: "${YOUURL_SERVICE_NAME}-configmap"
+  namespace: ${YOUURL_NAMESPACE}
+data:
+  youurl-site: ${YOUURL_SITE}
+  youurl-user: ${YOUURL_USER}
+  youurl-db-host: ${YOUURL_DB_HOST}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: "${YOUURL_SERVICE_NAME}-secret"
+  namespace: ${YOUURL_NAMESPACE}
+type: Opaque
+data:
+  youurl-password: ${YOUURL_PASSWORD}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: "${YOUURL_SERVICE_NAME}-pvc"
+  namespace: ${YOUURL_NAMESPACE}
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: "${YOUURL_SERVICE_NAME}-svc"
+  namespace: ${YOUURL_NAMESPACE}
+  labels:
+    app: ${YOUURL_SERVICE_NAME}
+spec:
+  type: ClusterIP
+  selector:
+    app: ${YOUURL_SERVICE_NAME}
+  ports:
+  - name: http
+    port: ${YOUURL_PORT}
+    targetPort: ${YOUURL_PORT}
+
